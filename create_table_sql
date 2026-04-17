@@ -1,0 +1,15 @@
+--创建电商数据库
+create database if not exists taobao_project default charset=utf8mb4;
+use taobao_project;
+
+--创建用户表
+create table users(user_id int primary key,age int,city varchar(20));
+
+--创建商品表
+create table items(item_id int primary key,category_id int,price decimal(10,2));
+
+--创建订单表
+create table orders(order_id int primary key auto_increment,user_id int,item_id int,buy_time datetime,payment decimal(10,2));
+
+--创建用户行为表
+create table user_behavior(id int auto_increment,user_id int,item_id int,behavior_type varchar(10),ts datetime,primary key(id));
