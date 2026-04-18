@@ -1,0 +1,152 @@
+# 准备工作
+MYSQL_USER = "root"
+MYSQL_PASSWORD = ""
+MYSQL_HOST = "localhost"
+MYSQL_DB = "taobao_project"
+# ===========================================================================
+import pandas as pd
+import matplotlib.pyplot as plt
+from pymysql import connect
+
+# 强制解决中文乱码
+plt.rcParams["font.sans-serif"] = ["SimHei"]
+plt.rcParams["axes.unicode_minus"] = False
+
+# 数据库连接
+conn = connect(
+    host=MYSQL_HOST,
+    user=MYSQL_USER,
+    password=MYSQL_PASSWORD,
+    database=MYSQL_DB,
+    charset="utf8mb4"
+)
+
+# 1. 平台总览
+sql1 = """
+SELECT
+   COUNT(DISTINCT u.user_id) AS 总用户数,
+   COUNT(DISTINCT o.order_id) AS 总订单数,
+   SUM(o.payment) AS 总GMV,
+   ROUND(AVG(o.payment),2) AS 客单价
+FROM users u LEFT JOIN orders o on u.user_id=o.user_id;
+"""
+df1 = pd.read_sql(sql1, conn)
+plt.figure(figsize=(10,5))
+plt.bar(["总用户数","总订单数","总GMV","客单价"], 
+        [df1.iloc[0,0],df1.iloc[0,1],df1.iloc[0,2] or 0,df1.iloc[0,3] or 0])
+plt.title("1. 平台运营总览")
+plt.tight_layout()
+plt.savefig("1_平台总览.png",dpi=300)
+plt.close()
+
+# 2. 用户行为分布
+sql2 = """
+SELECT 
+   behavior_type,
+   COUNT(*) AS 行为总次数,
+   COUNT(DISTINCT user_id) AS 参与用户数
+FROM user_behavior
+GROUP BY behavior_type
+ORDER BY 参与用户数 DESC;
+"""
+df2 = pd.read_sql(sql2, conn)
+plt.figure(figsize=(12,5))
+plt.subplot(1,2,1)
+plt.bar(df2["behavior_type"], df2["行为总次数"])
+plt.title("行为总次数")
+plt.subplot(1,2,2)
+plt.pie(df2["参与用户数"],labels=df2["behavior_type"],autopct="%1.1f%%")
+plt.title("参与用户占比")
+plt.suptitle("2. 用户行为分布")
+plt.tight_layout()
+plt.savefig("2_用户行为.png",dpi=300)
+plt.close()
+
+# 3. 转化漏斗
+sql3 = """
+SELECT
+  COUNT(DISTINCT CASE WHEN behavior_type='pv' THEN user_id END) AS 浏览用户数, 
+  COUNT(DISTINCT CASE WHEN behavior_type IN('cart','fav') THEN user_id END) AS 加购收藏用户数,
+  COUNT(DISTINCT CASE WHEN behavior_type='buy' THEN user_id END) AS 购买用户数
+FROM user_behavior;
+"""
+df3 = pd.read_sql(sql3, conn)
+labels = ["浏览", "加购收藏", "购买"]
+values = [df3.iloc[0,0], df3.iloc[0,1], df3.iloc[0,2]]
+
+# 标准漏斗图实现
+plt.figure(figsize=(8,6))
+colors = ["#3498db", "#f39c12", "#2ecc71"]
+for i in range(len(values)):
+    plt.barh(i, values[i], color=colors[i], height=0.6)
+    plt.text(values[i]/2, i, str(values[i]), ha='center', va='center', color='white', fontsize=12)
+
+plt.yticks(range(len(labels)), labels)
+plt.gca().invert_yaxis()  # 倒转Y轴，形成从上到下的漏斗效果
+plt.title("3. 用户转化漏斗（标准漏斗图）")
+plt.tight_layout()
+plt.savefig("3_标准转化漏斗.png", dpi=300)
+plt.close()
+
+# 4. 热销商品TOP10
+sql4 = """
+SELECT i.item_id, COUNT(o.order_id) AS 销量
+FROM items i LEFT JOIN orders o ON i.item_id=o.item_id 
+GROUP BY i.item_id ORDER BY 销量 DESC LIMIT 10;
+"""
+df4 = pd.read_sql(sql4, conn)
+plt.figure(figsize=(10,5))
+plt.barh(df4["item_id"].astype(str), df4["销量"])
+plt.title("4. 热销商品TOP10")
+plt.tight_layout()
+plt.savefig("4_热销商品.png",dpi=300)
+plt.close()
+
+# 5. 城市GMV排行
+sql5 = """
+SELECT u.city, SUM(o.payment) AS 城市GMV
+FROM users u JOIN orders o ON u.user_id=o.user_id
+GROUP BY u.city ORDER BY 城市GMV DESC;
+"""
+df5 = pd.read_sql(sql5, conn)
+plt.figure(figsize=(12,5))
+plt.bar(df5["city"], df5["城市GMV"])
+plt.xticks(rotation=30)
+plt.title("5. 各城市GMV排行")
+plt.tight_layout()
+plt.savefig("5_城市GMV.png",dpi=300)
+plt.close()
+
+# 6. 复购率
+sql6 = """
+SELECT
+COUNT(DISTINCT CASE WHEN 订单数>=2 THEN user_id END) AS 复购用户数,
+COUNT(DISTINCT user_id) AS 总购买用户数
+FROM (SELECT user_id,COUNT(order_id) AS 订单数 FROM orders GROUP BY user_id) t;
+"""
+df6 = pd.read_sql(sql6, conn)
+plt.figure(figsize=(6,6))
+plt.pie([df6.iloc[0,0], df6.iloc[0,1]-df6.iloc[0,0]],
+        labels=["复购用户","非复购用户"],autopct="%1.1f%%")
+plt.title("6. 用户复购率分析")
+plt.tight_layout()
+plt.savefig("6_复购率.png",dpi=300)
+plt.close()
+
+# 7. 每日订单趋势
+sql7 = """
+SELECT DATE(buy_time) AS 日期, COUNT(order_id) AS 订单数
+FROM orders GROUP BY DATE(buy_time) ORDER BY 日期;
+"""
+df7 = pd.read_sql(sql7, conn)
+plt.figure(figsize=(12,5))
+plt.plot(df7["日期"], df7["订单数"], marker="o")
+plt.xticks(rotation=45)
+plt.title("7. 每日订单趋势")
+plt.tight_layout()
+plt.savefig("7_每日趋势.png",dpi=300)
+plt.close()
+
+print("✅ 7 张图表全部生成成功！已保存到当前文件夹！")
+conn.close()
+
