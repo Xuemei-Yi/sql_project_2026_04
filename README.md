@@ -44,7 +44,7 @@ user_behavior：1800条
 4. 热销商品 TOP10
 ![热销商品](visualization_python_charts/4_热销商品.png)
 分析：
-**商品16、17销量最高，说明该类商品用户认可度高**，可作为平台主推款，优化库存与供应链。
+**商品16销量最高，说明该类商品用户认可度高**，可作为平台主推款，优化库存与供应链。
 
 5. 各城市消费能力排行
 ![城市GMV排行](visualization_python_charts/5_城市GMV.png)
