@@ -20,6 +20,8 @@ user_behavior：1800条
 1. 运行 create_table.sql 建库建表
 2. 运行 insert_data.sql 导入数据
 3. 运行 analysis.sql 查看分析结果
+4.用python对sql查询结果进行可视化，模拟企业Finebi可视化过程
+
 # 对照sql查询结果（result_images)与python可视化结果(visualization_python_charts)进行详细分析
 1. 平台总体运营总览
 ![平台总览](visualization_python_charts/1_平台总览.png)
